@@ -1,0 +1,407 @@
+{% extends "base.html" %}
+{% set active_page = 'customer_mapping' %}
+
+{% block title %}Customer Mapping - MasterPO{% endblock %}
+
+{% block content %}
+{% if error %}
+<div id="errorModal" class="modal-overlay" style="display:flex;">
+    <div class="modal-card" style="max-width:480px;">
+
+        <div style="align-items: center;">
+            <button type="button"
+                    class="close-btn"
+                    onclick="closeErrorModal()">
+                &times;
+            </button>
+        </div>
+
+        <div style="padding:20px 24px; text-align:center;">
+            <span class="material-symbols-rounded"
+                  style="font-size:48px;">
+                error
+            </span>
+
+            <p style="margin-top:12px;">
+                {{ error }}
+            </p>
+        </div>
+
+        <div class="btn-group-single-line"
+             style="justify-content:center; padding:0 24px 20px;">
+
+            <button type="button"
+                    class="btn btn-primary"
+                    onclick="closeErrorModal()">
+                OK
+            </button>
+
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-shell">
+    <div class="page-heading">
+        <div>
+            <h1>Customer List</h1>
+        </div>
+    </div>
+
+    <section class="workspace-card">
+        <form method="GET" action="/customer-mapping" class="filter-row"  style="width:100%; display:flex; justify-content:flex-end;">
+            <div class="toolbar" style="display:flex; align-items:center; justify-content:flex-end; gap:16px;">
+                <div class="filter-field">
+                    <div class="search-wrap">
+                        <span class="material-symbols-rounded">search</span>
+                        <input type="text" id="liveSearch" name="search"
+                            placeholder="Search"
+                            value="{{ request.args.get('search', '') }}" autocomplete="off">
+                    </div>
+                </div>
+                   
+                <button type="button" class="action-btn primary" onclick="openCreateModal()">
+                    <span class="material-symbols-rounded">add</span>
+                    Add Customer
+                </button>
+            </div>
+        </form>
+
+        <div class="table-wrap">
+            <table class="data-table cust-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">No</th>
+                        <th class="sortable" onclick="sortTable(1, this)">Cust Code <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(2, this)">SL Cust Code <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(3, this)">Seller <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(4, this)">Order Type <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(5, this)">Update by <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in mappings %}
+                    <tr class="clickable-row cust-data-row"
+                        onclick="openEditModal('{{ m.no }}', '{{ m.cust_code }}', '{{ m.sl_cust_code }}', '{{ m.seller }}', '{{ m.order_type }}', '{{m.update_by}}')">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ m.cust_code }}</td>
+                        <td>{{ m.sl_cust_code }}</td>
+                        <td>{{ m.seller }}</td>
+                        <td>{{ m.order_type }}</td>
+                        <td>{{ m.update_by }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="empty-state">No customer mappings found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="pagination-bar">
+                <div class="pagination-info">
+                    Showing <span id="showingStart">0</span>–<span id="showingEnd">0</span>
+                    of <span id="totalRows">0</span>
+                </div>
+
+                <div class="pagination-controls">
+                    <label for="rowsPerPage">Rows per page:</label>
+                    <select id="rowsPerPage">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+
+                    <button type="button" id="prevPage"><<</button>
+                    <span id="pageInfo">1 of 1</span>
+                    <button type="button" id="nextPage">>></button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="customerModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h4 id="modalTitle">Add Customer</h4>
+            <button type="button" class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+
+        <form id="custForm" action="/customer-mapping/save" method="post">
+            <input type="hidden" id="record_no" name="record_no" value="">
+
+            <div class="form-group-horizontal">
+                <label for="cust_code">Customer Code</label>
+                <input type="text" id="cust_code" name="cust_code" required placeholder="10000">
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="sl_cust_code">SL Customer</label>
+                <input type="text" id="sl_cust_code" name="sl_cust_code" required placeholder="E00429" oninput="lookupSeller()">
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="seller">Seller ID</label>
+                <input type="text" id="seller" name="seller" required readonly placeholder="HMS18">
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="order_type">Order Type</label>
+                <input type="text" id="order_type" name="order_type" required placeholder="HM">
+            </div>
+
+            <div class="btn-group-single-line">
+                <button type="submit" id="btnCreate" class="btn btn-primary">Create</button>
+                <button type="button" id="btnUpdate" class="btn btn-update" onclick="submitForm('/customer-mapping/update')" style="display:none;">Update</button>
+                <button type="button" id="btnDelete" class="btn btn-delete" onclick="confirmDelete()" style="display:none;">Delete</button>
+                <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+
+const liveSearch = document.getElementById('liveSearch');
+const tableBody = document.querySelector('.data-table tbody');
+const rowsPerPageSelect = document.getElementById('rowsPerPage');
+
+let currentPage = 1;
+
+function getFilteredRows() {
+    const keyword = liveSearch
+        ? liveSearch.value.trim().toLowerCase()
+        : '';
+
+    return Array.from(
+        tableBody.querySelectorAll('tr.clickable-row')
+    ).filter(row => row.innerText.toLowerCase().includes(keyword));
+}
+
+function renderPagination() {
+    const rows = getFilteredRows();
+    const pageSize = Number(rowsPerPageSelect.value);
+    const totalRows = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+
+    // Keep the current page within the valid range.
+    currentPage = Math.min(currentPage, totalPages);
+
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalRows);
+
+    // Hide all customer rows first.
+    tableBody.querySelectorAll('tr.clickable-row').forEach(row => {
+        row.style.display = 'none';
+    });
+
+    // Display only rows for the current page.
+    rows.slice(startIndex, endIndex).forEach(row => {
+        row.style.display = '';
+    });
+
+    document.getElementById('showingStart').textContent =
+        totalRows === 0 ? 0 : startIndex + 1;
+
+    document.getElementById('showingEnd').textContent = endIndex;
+    document.getElementById('totalRows').textContent = totalRows;
+    document.getElementById('pageInfo').textContent =
+        `Page ${currentPage} of ${totalPages}`;
+
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled =
+        currentPage === totalPages;
+}
+
+if (liveSearch) {
+    liveSearch.addEventListener('input', () => {
+        currentPage = 1;
+        renderPagination();
+    });
+}
+
+rowsPerPageSelect.addEventListener('change', () => {
+    currentPage = 1;
+    renderPagination();
+});
+
+document.getElementById('prevPage').addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPagination();
+    }
+});
+
+document.getElementById('nextPage').addEventListener('click', () => {
+    currentPage++;
+    renderPagination();
+});
+
+// Initial display
+renderPagination();
+
+function openCreateModal() {
+    document.getElementById('custForm').reset();
+    document.getElementById('custForm').action = "/customer-mapping/save";
+    document.getElementById('record_no').value = '';
+    
+    document.getElementById('modalTitle').innerText = 'Add New Customer';
+    document.getElementById('btnCreate').style.display = 'block';
+    document.getElementById('btnUpdate').style.display = 'none';
+    document.getElementById('btnDelete').style.display = 'none';
+    
+    document.getElementById('customerModal').style.display = 'flex';
+}
+
+function openEditModal(no, custCode, slCustCode, seller, orderType) {
+    document.getElementById('record_no').value = no;
+    document.getElementById('cust_code').value = custCode;
+    document.getElementById('sl_cust_code').value = slCustCode;
+    document.getElementById('seller').value = seller;
+    document.getElementById('order_type').value = orderType;
+
+    document.getElementById('modalTitle').innerText = 'Edit Customer';
+    document.getElementById('btnCreate').style.display = 'none';
+    document.getElementById('btnUpdate').style.display = 'block';
+    document.getElementById('btnDelete').style.display = 'block';
+
+    document.getElementById('customerModal').style.display = 'flex';
+
+    if(!seller || parseFloat(seller) === 0){
+        lookupSeller();
+    }
+}
+
+function closeModal() {
+    document.getElementById('customerModal').style.display = 'none';
+}
+
+function submitForm(actionUrl) {
+    var form = document.getElementById('custForm');
+    form.action = actionUrl;
+    form.submit();
+}
+
+function confirmDelete() {
+    if (confirm('Are you sure you want to delete this record?')) {
+        submitForm('/customer-mapping/delete-from-form');
+    }
+}
+
+function closeErrorModal() {
+    const modal = document.getElementById('errorModal');
+
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+let sellerDebounceTimer;
+
+function lookupSeller() {
+    clearTimeout(sellerDebounceTimer);
+
+    const slCustCode = document.getElementById('sl_cust_code').value.trim();
+    const sellerInput = document.getElementById('seller');
+
+    if (!slCustCode) {
+        sellerInput.value = '';
+        return;
+    }
+
+    sellerDebounceTimer = setTimeout(() => {
+        fetch(`/api/get-customer-seller?cust_id=${encodeURIComponent(slCustCode)}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`Seller lookup failed: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                sellerInput.value = data.seller || '';
+            })
+            .catch(err => {
+                console.error('Error fetching seller:', err);
+                sellerInput.value = '';
+            });
+    }, 400);
+
+}
+
+let currentSortColumn = -1;
+let currentSortDirection = 'asc';
+
+function sortTable(columnIndex, header) {
+    const tbody = document.querySelector('.cust-table tbody');
+
+    const rows = Array.from(
+        tbody.querySelectorAll('tr.cust-data-row')
+    );
+
+    if (currentSortColumn === columnIndex) {
+        currentSortDirection =
+            currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumn = columnIndex;
+        currentSortDirection = 'asc';
+    }
+
+    rows.sort((a, b) => {
+        let valueA = a.cells[columnIndex].innerText.trim();
+        let valueB = b.cells[columnIndex].innerText.trim();
+
+        // Date columns
+        if (columnIndex === 5 || columnIndex === 6) {
+            valueA = valueA === '-' ? '' : valueA;
+            valueB = valueB === '-' ? '' : valueB;
+
+            const dateA = Date.parse(valueA) || 0;
+            const dateB = Date.parse(valueB) || 0;
+
+            return currentSortDirection === 'asc'
+                ? dateA - dateB
+                : dateB - dateA;
+        }
+
+        // Text / PO number
+        return currentSortDirection === 'asc'
+            ? valueA.localeCompare(valueB, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            })
+            : valueB.localeCompare(valueA, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            });
+    });
+
+    // Reorder rows according to the selected column
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Renumber the No column after sorting
+    Array.from(tbody.querySelectorAll('tr.cust-data-row'))
+        .forEach((row, index) => {
+            row.cells[0].textContent = index + 1;
+        });
+
+    // Reapply search and pagination after sorting
+    currentPage = 1;
+    renderPagination();
+
+    // Reset all icons
+    document.querySelectorAll('.cust-table th.sortable').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+
+        if (icon) {
+            icon.textContent = 'unfold_more';
+        }
+    });
+
+    // Active sort icon
+    const icon = header.querySelector('.sort-icon');
+
+    if (icon) {
+        icon.textContent =
+            currentSortDirection === 'asc'
+                ? 'keyboard_arrow_up'
+                : 'keyboard_arrow_down';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,48 @@
+CREATE DATABASE IF NOT EXISTS PO;
+USE PO;
+
+CREATE TABLE IF NOT EXISTS customer (
+    no INT AUTO_INCREMENT PRIMARY KEY,
+    cust_code VARCHAR(50) NOT NULL,
+    sl_cust_code VARCHAR(50) NOT NULL,
+    seller VARCHAR(50),
+    order_type VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS item (
+    no INT AUTO_INCREMENT PRIMARY KEY,
+    item_code VARCHAR(50) NOT NULL,
+    pg_code VARCHAR(50) NOT NULL,
+    description VARCHAR(50),
+    price VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS customer_po (
+    no INT AUTO_INCREMENT PRIMARY KEY,
+    po_number VARCHAR(100) NOT NULL UNIQUE,
+    total DECIMAL(12,2) DEFAULT 0.00,
+    order_type VARCHAR(50),
+    cust_no VARCHAR(50),
+    seller_no VARCHAR(50),
+    order_date DATE,
+    delivery_date DATE,
+    exported VARCHAR(20) DEFAULT 'Pending',
+    generate VARCHAR(20) DEFAULT 'Pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS users (
+	no INT AUTO_INCREMENT PRIMARY KEY,
+	username VARCHAR(100) NOT NULL UNIQUE,
+	password_hash VARCHAR(255) NOT NULL,
+	role VARCHAR(20) NOT NULL DEFAULT 'user',
+	is_active TINYINT(1) NOT NULL DEFAULT 1,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	ON UPDATE CURRENT_TIMESTAMP
+);
+
+
+            

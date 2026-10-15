@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% set active_page = 'home' %}
+
+{% block title %}Home - MasterPO{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+    <div class="page-heading">
+        <div>
+            <h1>Home</h1>
+        </div>
+    </div>
+
+    <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <div style="display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 0 0 16px 0;">
+            <label for="agencySelect" style="font-weight: 600; white-space: nowrap; margin: 0;">PO Type :</label>
+            <select id="agencySelect" name="agency" required
+                    style="width: 100%; padding: 12px 14px; border: 1px solid #d9dfeb; border-radius: 10px; background: #fff;">
+                <option value="" {% if not agency %}selected{% endif %}>Select PO Type</option>
+                <option value="econsave" {% if agency == 'econsave' %}selected{% endif %}>ECONSAVE</option>
+                <option value="tf" {% if agency == 'tf' %}selected{% endif %}>TF VALUE-MART</option>
+            </select>
+        </div>
+        <input type="file" id="fileInput" name="po_file" accept=".pdf,.csv,application/pdf,text/csv" style="display:none;">
+
+            <div class="upload-card" id="dropZone">
+                <div class="upload-icon-circle">
+                    <span class="material-symbols-rounded">upload_file</span>
+                </div>
+                <h3>Upload Purchase Order PDF / CSV</h3>
+                    <p>Click here or drag and drop a PDF or CSV file.</p>
+                <div class="file-name" id="fileName">The PO will be extracted and mapped automatically.</div>
+            </div>
+        
+    </form>
+
+    {% if po_no or ship_to %}
+    <div class="info-grid">
+        <div class="info-box">
+            <div class="info-label">PO Number</div>
+            <div class="info-value">{{ po_no or '-' }}</div>
+        </div>
+        <div class="info-box">
+            <div class="info-label">Ship-To Location</div>
+            <div class="info-value">{{ ship_to or '-' }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+        <div class="toolbar" style="justify-content:flex-end;">
+            {% if extracted_data %}
+            <form action="/map" method="post" style="margin:0;">
+                <button type="submit" class="action-btn">
+                    <span class="material-symbols-rounded">sync</span>
+                    Re-map
+                </button>
+            </form>
+            {% endif %}
+
+            {% if mapped_data or extracted_data %}
+            <a href="/download/report" class="action-btn">
+                <span class="material-symbols-rounded">table_view</span>
+                Export
+            </a>
+            {% endif %}
+
+            <a href="/download/dta" class="action-btn primary {% if not mapped_data %}disabled{% endif %}"
+               {% if not mapped_data %}aria-disabled="true" title="Upload a PO before generate"{% endif %}>
+                <span class="material-symbols-rounded">description</span>
+                Generate
+            </a>
+
+            <a href="/reset" class="action-btn danger">
+                <span class="material-symbols-rounded">restart_alt</span>
+                Reset
+            </a>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table mapping-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">No</th>
+                        <th>SKU</th>
+                        <th>Item Code</th>
+                        <th>Description</th>
+                        <th>Quantity</th>
+                        <th>PO Price</th>
+                        <th>Selling Price</th>
+                        <th>Total</th>
+                        <th class="sortable" onclick="sortTable(8, this)">Remark <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if mapped_data %}
+                        {% for row in mapped_data %}
+                        <tr class=" mapping-data-row {% if row['REMARK'] == 'OK' %}result-ok{% else %}result-error{% endif %}">
+                            <td>{{ loop.index }}</td>
+                            <td class="cell-wrap" style="min-width:150px; max-width:360px;">{{ row['SKU'] }}</td>
+                            <td>{{ row['PG CODE'] }}</td>
+                            <td class="cell-wrap" style="min-width:220px; max-width:360px;">{{ row['DESCRIPTION'] }}</td>
+                            <td>{{ row['QUANTITY'] }}</td>
+                            <td>{{ row['PO PRICE (RM)'] }}</td>
+                            <td>{{ row['ITEM PRICE (RM)'] }}</td>
+                            <td>{{ row['PO TOTAL (RM)'] }}</td>
+                            <td class="cell-wrap {% if row['REMARK'] == 'OK' %}remark-ok{% else %}remark-error{% endif %}"
+                                style="min-width:200px; max-width:440px;">
+                                {{ row['REMARK'] }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% elif extracted_data %}
+                        {% for row in extracted_data %}
+                        <tr>
+                            <td class="cell-strong">{{ row['PO NO'] }}</td>
+                            <td>{{ row['SKU'] }}</td>
+                            <td>-</td>
+                            <td class="cell-wrap" style="min-width:260px; max-width:360px;">{{ row['DESCRIPTION'] }}</td>
+                            <td>{{ row['QUANTITY'] }}</td>
+                            <td>{{ row['PO PRICE (RM)'] }}</td>
+                            <td>-</td>
+                            <td>{{ row['PO TOTAL (RM)'] }}</td>
+                            <td>-</td>
+                            <td class="remark-error">NOT MAPPED</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="10" class="empty-state">Upload a purchase order to begin.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const uploadForm = document.getElementById('uploadForm');
+    const agencySelect = document.getElementById('agencySelect');
+
+    function submitPo(file) {
+        if (!file) return;
+
+        if (!agencySelect.value) {
+            alert('Please select an agency / PO template first.');
+            return;
+        }
+
+        const lowerName = file.name.toLowerCase();
+        const isPdf = file.type === 'application/pdf' || lowerName.endsWith('.pdf');
+        const isCsv = file.type === 'text/csv' || lowerName.endsWith('.csv');
+
+        if (!isPdf && !isCsv) {
+            alert('Please select a PDF or CSV file.');
+            return;
+        }
+
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        fileInput.files = transfer.files;
+
+        fileName.textContent = 'Uploading: ' + file.name;
+        uploadForm.submit();
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) {
+            submitPo(fileInput.files[0]);
+        }
+    });
+
+    dropZone.addEventListener('dragover', event => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', event => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+
+        if (event.dataTransfer.files.length) {
+            submitPo(event.dataTransfer.files[0]);
+        }
+    });
+
+let currentSortColumn = -1;
+let currentSortDirection = 'asc';
+
+function sortTable(columnIndex, header) {
+    const tbody = document.querySelector('.mapping-table tbody');
+
+    const rows = Array.from(
+        tbody.querySelectorAll('tr.mapping-data-row')
+    );
+
+    if (currentSortColumn === columnIndex) {
+        currentSortDirection =
+            currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumn = columnIndex;
+        currentSortDirection = 'asc';
+    }
+
+    rows.sort((a, b) => {
+        let valueA = a.cells[columnIndex].innerText.trim();
+        let valueB = b.cells[columnIndex].innerText.trim();
+
+        // Date columns
+        if (columnIndex === 5 || columnIndex === 6) {
+            valueA = valueA === '-' ? '' : valueA;
+            valueB = valueB === '-' ? '' : valueB;
+
+            const dateA = Date.parse(valueA) || 0;
+            const dateB = Date.parse(valueB) || 0;
+
+            return currentSortDirection === 'asc'
+                ? dateA - dateB
+                : dateB - dateA;
+        }
+
+        // Text / PO number
+        return currentSortDirection === 'asc'
+            ? valueA.localeCompare(valueB, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            })
+            : valueB.localeCompare(valueA, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            });
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Reset all icons
+    document.querySelectorAll('.mapping-table th.sortable').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+
+        if (icon) {
+            icon.textContent = 'unfold_more';
+        }
+    });
+
+    // Active sort icon
+    const icon = header.querySelector('.sort-icon');
+
+    if (icon) {
+        icon.textContent =
+            currentSortDirection === 'asc'
+                ? 'keyboard_arrow_up'
+                : 'keyboard_arrow_down';
+    }
+}
+</script>
+{% endblock %}

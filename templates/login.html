@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - MasterPO</title>
+
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,-50..200">
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
+
+    <style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#151a2e;
+  --navy2:#20263b;
+  --purple:#4f52ba;
+  --purple-hover:#4548aa;
+  --text:#172033;
+  --muted:#7b8495;
+  --line:#dfe3eb;
+}
+body{
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:12px 20px;
+  font-family:'Poppins',sans-serif;
+  color:var(--text);
+  background:
+    linear-gradient(135deg,#f7f8fc 0%,#eef1f7 100%);
+}
+.login-shell{
+  width:min(500px,100%);
+  overflow:hidden;
+  border:1px solid #e5e8ef;
+  border-radius:24px;
+  background:#fff;
+  box-shadow:0 24px 65px rgba(15,23,42,.14);
+}
+.brand-panel{
+  position:relative;
+  min-height:80px;
+  display:flex;
+  align-items:center;
+  padding:30px 54px;
+  color:#fff;
+  background:var(--navy);
+  overflow:hidden;
+}
+.brand-panel::before,.brand-panel::after{
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  background:rgba(255,255,255,.045);
+}
+.brand-panel::before{width:230px;height:230px;left:-105px;top:-95px}
+.brand-panel::after{width:260px;height:260px;right:-110px;top:-95px}
+.brand{position:relative;z-index:1;display:flex;align-items:center;gap:16px}
+.logo{
+  width:58px;height:58px;display:grid;place-items:center;overflow:hidden;
+  border-radius:14px;background:#fff;box-shadow:0 7px 20px rgba(0,0,0,.14)
+}
+.logo img{width:100%;height:100%;object-fit:contain}
+.brand-name{font-size:1.48rem;font-weight:700;line-height:1.1}
+.brand-sub{
+  margin-top:7px;color:#b7c0dc;font-size:.7rem;
+  letter-spacing:.10em;text-transform:uppercase
+}
+.form-panel{padding:30px 68px 30px;background:#fff}
+.form-content{width:100%;max-width:520px;margin:auto}
+.eyebrow{
+  color:var(--purple);font-size:.72rem;font-weight:700;
+  letter-spacing:.13em;text-transform:uppercase
+}
+.form-content h2{
+  margin-top:2px;color:var(--text);font-size:2rem;
+  line-height:1.15;letter-spacing:-.035em
+}
+.intro{margin-top:8px;color:var(--muted);font-size:.78rem;line-height:1.6}
+.login-form{margin-top:20px}
+.field{margin-bottom:19px}
+.field label{
+  display:block;margin-bottom:8px;color:#354052;
+  font-size:.73rem;font-weight:600
+}
+.input-wrap{position:relative}
+.input-wrap>.material-symbols-rounded{
+  position:absolute;left:16px;top:50%;transform:translateY(-50%);
+  color:#98a1b2;font-size:20px;pointer-events:none
+}
+.field input[type="text"],.field input[type="password"]{
+  width:100%;height:48px;padding:0 48px 0 48px;
+  border:1px solid var(--line);border-radius:12px;outline:none;
+  background:#fff;color:#1f2937;font:inherit;font-size:.78rem;
+  transition:border-color .15s ease,box-shadow .15s ease
+}
+.field input:focus{
+  border-color:#7376cf;box-shadow:0 0 0 3px rgba(79,82,186,.10)
+}
+.password-toggle{
+  position:absolute;right:9px;top:50%;transform:translateY(-50%);
+  width:36px;height:36px;display:grid;place-items:center;border:0;
+  border-radius:8px;background:transparent;color:#8a94a6;cursor:pointer
+}
+.password-toggle .material-symbols-rounded{
+  position:static;transform:none;color:inherit;font-size:20px
+}
+.remember-row{
+  display:flex;align-items:center;margin:-2px 0 22px;
+  color:#586174;font-size:.7rem
+}
+.remember-row label{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.remember-row input{width:15px;height:15px;accent-color:var(--purple)}
+.error-box{
+  display:flex;gap:8px;align-items:flex-start;margin-bottom:18px;
+  padding:10px 12px;border:1px solid #f4cccc;border-radius:9px;
+  background:#fff7f7;color:#b42318;font-size:.7rem;line-height:1.5
+}
+.error-box .material-symbols-rounded{font-size:17px}
+.login-btn{
+  width:100%;height:48px;display:inline-flex;align-items:center;
+  justify-content:center;gap:9px;border:0;border-radius:12px;
+  background:var(--purple);color:#fff;font:inherit;font-size:.8rem;
+  font-weight:600;cursor:pointer;box-shadow:0 8px 18px rgba(79,82,186,.20);
+  transition:transform .15s ease,background .15s ease
+}
+.login-btn:hover{background:var(--purple-hover);transform:translateY(-1px)}
+.login-btn .material-symbols-rounded{font-size:19px}
+.security-note{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  margin-top:18px;color:#98a1b2;font-size:.66rem
+}
+.security-note .material-symbols-rounded{font-size:15px}
+@media(max-width:600px){
+  body{padding:20px 14px}
+  .login-shell{border-radius:19px}
+  .brand-panel{min-height:132px;padding:30px}
+  .logo{width:52px;height:52px}
+  .brand-name{font-size:1.3rem}
+  .form-panel{padding:38px 28px 34px}
+  .form-content h2{font-size:1.72rem}
+}
+</style>
+</head>
+<body>
+<div class="login-shell">
+  <section class="brand-panel">
+    <div class="brand">
+      <div class="logo">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="MasterPO logo">
+      </div>
+      <div>
+        <div class="brand-name">MasterPO</div>
+        <div class="brand-sub">PO Conversion System</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="form-panel">
+    <div class="form-content">
+      <div class="eyebrow">Secure Access</div>
+      <h2>Welcome back</h2>
+
+      <form method="POST" action="{{ url_for('login') }}" class="login-form">
+        <input type="hidden" name="next" value="{{ next_url }}">
+
+        {% if error %}
+        <div class="error-box">
+          <span class="material-symbols-rounded">error</span>
+          <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <div class="field">
+          <label for="username">Username</label>
+          <div class="input-wrap">
+            <span class="material-symbols-rounded">person</span>
+            <input id="username" name="username" type="text"
+                   placeholder="Enter username" autocomplete="username" required autofocus>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="input-wrap">
+            <span class="material-symbols-rounded">lock</span>
+            <input id="password" name="password" type="password"
+                   placeholder="Enter password" autocomplete="current-password" required>
+            <button class="password-toggle" type="button"
+                    onclick="togglePassword()" aria-label="Show password">
+              <span class="material-symbols-rounded" id="passwordIcon">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="remember-row">
+          <label>
+            <input type="checkbox" name="remember">
+            <span>Remember me</span>
+          </label>
+        </div>
+
+        <button class="login-btn" type="submit">
+          <span class="material-symbols-rounded">login</span>
+          Sign in
+        </button>
+      </form>
+
+      <div class="security-note">
+        <span class="material-symbols-rounded">shield_lock</span>
+        Authorized users only
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+function togglePassword() {
+  const input = document.getElementById('password');
+  const icon = document.getElementById('passwordIcon');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  icon.textContent = show ? 'visibility_off' : 'visibility';
+}
+</script>
+</body>
+</html>

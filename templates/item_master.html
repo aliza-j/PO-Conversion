@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+{% set active_page = 'item_master' %}
+
+{% block title %}Item Master - MasterPO{% endblock %}
+
+{% block content %}
+{% if error %}
+<div id="errorModal" class="modal-overlay" style="display:flex;">
+    <div class="modal-card" style="max-width:480 px;">
+        <div style="align-items: center;">
+            <button type="button" class="close-btn" onclick="closeErrorModal()">&times;</button>
+        </div>
+
+        <div style="padding:20px 24px; text-align: center;">
+            <span class="material-symbols-rounded" style="font-size: 48px;"> error</span>
+
+            <p style="margin-top: 12px;"> {{error}}</p>
+        </div>
+
+        <div class="btn-group-single-line" style="justify-content: center; padding: 0 24px 20px;">
+            <button type="button" class="btn btn-primary" onclick="closeErrorModal()"> OK </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-shell">
+    <div class="page-heading">
+        <div>
+            <h1>Product List</h1>
+        </div>
+    </div>
+
+    <section class="workspace-card">
+        <form method="GET" action="/item-master" class="filter-row" style="width:100%; display:flex; justify-content:flex-end;">
+            <div class="toolbar" style="display:flex; align-items:center; justify-content:flex-end; gap: 16px;">
+                <div class="filter-field">
+                    <div class="search-wrap">
+                        <span class="material-symbols-rounded">search</span>
+                        <input type="text" id="liveSearch" name="search"
+                            placeholder="Search"
+                            value="{{ request.args.get('search', '') }}" autocomplete="off">
+                    </div>
+                </div>
+
+                <button type="button" class="action-btn primary" onclick="openCreateModal()">
+                    <span class="material-symbols-rounded">add</span>
+                    Add Item
+                </button>
+            </div>
+        </form>
+
+        <div class="table-wrap">
+            <table class="data-table item-table">
+                <thead>
+                    <tr>
+                        <th style="width:50px;">No</th>
+                        <th class="sortable" onclick="sortTable(1, this)">Item Code <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(2, this)">PG Code <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(3, this)">Description <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(4, this)">Price <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                        <th class="sortable" onclick="sortTable(5, this)">Update By <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr class="clickable-row item-data-row"
+                        onclick="openEditModal('{{ item.no }}', '{{ item.item_code }}', '{{ item.pg_code }}', '{{ item.description }}', '{{ item.price }}')">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ item.item_code }}</td>
+                        <td>{{ item.pg_code }}</td>
+                        <td class="cell-wrap">{{ item.description }}</td>
+                        <td>{{ item.price }}</td>
+                        <td>{{ item.update_by }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="empty-state">No items found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="pagination-bar">
+                <div class="pagination-info">
+                    Showing <span id="showingStart">0</span>–<span id="showingEnd">0</span>
+                    of <span id="totalRows">0</span>
+                </div>
+
+                <div class="pagination-controls">
+                    <label for="rowsPerPage">Rows per page:</label>
+                    <select id="rowsPerPage">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+
+                    <button type="button" id="prevPage"><<</button>
+                    <span id="pageInfo">1 of 1</span>
+                    <button type="button" id="nextPage">>></button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="itemModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h4 id="modalTitle">Add Item</h4>
+            <button type="button" class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+
+        <form id="itemForm" action="/item-master/save" method="post">
+            <input type="hidden" id="record_no" name="record_no" value="">
+
+            <div class="form-group-horizontal">
+                <label for="item_code">Item Code</label>
+                <input type="text" id="item_code" name="item_code" required placeholder="000000000">
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="pg_code">PG Code</label>
+                <input type="text" id="pg_code" name="pg_code" required placeholder="00000000" oninput="lookupItemPrice()">
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="description">Description</label>
+                <input type="text" id="description" name="description" required placeholder="Item Description">
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="price">Price</label>
+                <input type="text" id="price" name="price" required placeholder="0.00">
+            </div>
+
+            <div class="btn-group-single-line">
+                <button type="submit" id="btnCreate" class="btn btn-primary">Create</button>
+                <button type="button" id="btnUpdate" class="btn btn-update" onclick="submitForm('/item-master/update')" style="display:none;">Update</button>
+                <button type="button" id="btnDelete" class="btn btn-delete" onclick="confirmDelete()" style="display:none;">Delete</button>
+                <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+
+const liveSearch = document.getElementById('liveSearch');
+const tableBody = document.querySelector('.data-table tbody');
+const rowsPerPageSelect = document.getElementById('rowsPerPage');
+
+let currentPage = 1;
+
+function getFilteredRows() {
+    const keyword = liveSearch
+        ? liveSearch.value.trim().toLowerCase()
+        : '';
+
+    return Array.from(
+        tableBody.querySelectorAll('tr.clickable-row')
+    ).filter(row => row.innerText.toLowerCase().includes(keyword));
+}
+
+function renderPagination() {
+    const rows = getFilteredRows();
+    const pageSize = Number(rowsPerPageSelect.value);
+    const totalRows = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+
+    // Keep the current page within the valid range.
+    currentPage = Math.min(currentPage, totalPages);
+
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalRows);
+
+    // Hide all customer rows first.
+    tableBody.querySelectorAll('tr.clickable-row').forEach(row => {
+        row.style.display = 'none';
+    });
+
+    // Display only rows for the current page.
+    rows.slice(startIndex, endIndex).forEach(row => {
+        row.style.display = '';
+    });
+
+    document.getElementById('showingStart').textContent =
+        totalRows === 0 ? 0 : startIndex + 1;
+
+    document.getElementById('showingEnd').textContent = endIndex;
+    document.getElementById('totalRows').textContent = totalRows;
+    document.getElementById('pageInfo').textContent =
+        `Page ${currentPage} of ${totalPages}`;
+
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled =
+        currentPage === totalPages;
+}
+
+if (liveSearch) {
+    liveSearch.addEventListener('input', () => {
+        currentPage = 1;
+        renderPagination();
+    });
+}
+
+rowsPerPageSelect.addEventListener('change', () => {
+    currentPage = 1;
+    renderPagination();
+});
+
+document.getElementById('prevPage').addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPagination();
+    }
+});
+
+document.getElementById('nextPage').addEventListener('click', () => {
+    currentPage++;
+    renderPagination();
+});
+
+// Initial display
+renderPagination();
+
+function openCreateModal() {
+    document.getElementById('itemForm').reset();
+    document.getElementById('itemForm').action = "/item-master/save";
+    document.getElementById('record_no').value = '';
+    
+    document.getElementById('modalTitle').innerText = 'Add New Item';
+    document.getElementById('btnCreate').style.display = 'block';
+    document.getElementById('btnUpdate').style.display = 'none';
+    document.getElementById('btnDelete').style.display = 'none';
+    
+    document.getElementById('itemModal').style.display = 'flex';
+}
+
+function openEditModal(no, itemCode, pgCode, description, price) {
+    document.getElementById('record_no').value = no;
+    document.getElementById('item_code').value = itemCode;
+    document.getElementById('pg_code').value = pgCode;
+    document.getElementById('description').value = description;
+    document.getElementById('price').value = price;
+
+    document.getElementById('modalTitle').innerText = 'Edit Item';
+    document.getElementById('btnCreate').style.display = 'none';
+    document.getElementById('btnUpdate').style.display = 'block';
+    document.getElementById('btnDelete').style.display = 'block';
+
+    document.getElementById('itemModal').style.display = 'flex';
+
+    if (!price || parseFloat(price) === 0) {
+        lookupItemPrice();
+    }
+}
+
+function closeModal() {
+    document.getElementById('itemModal').style.display = 'none';
+}
+
+function submitForm(actionUrl) {
+    var form = document.getElementById('itemForm');
+    form.action = actionUrl;
+    form.submit();
+}
+
+function confirmDelete() {
+    if (confirm('Are you sure you want to delete this item?')) {
+        submitForm('/item-master/delete-from-form');
+    }
+}
+
+function closeErrorModal() {
+    const modal = document.getElementById('errorModal');
+
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+let debounceTimer;
+
+function lookupItemPrice() {
+    clearTimeout(debounceTimer);
+    
+    const pgCode = document.getElementById('pg_code').value.trim();
+    const priceInput = document.getElementById('price');
+
+    if (!pgCode) {
+        priceInput.value = '';
+        return;
+    }
+
+    debounceTimer = setTimeout(() => {
+        fetch(`/api/get-item-details?pg_code=${encodeURIComponent(pgCode)}`)
+            .then(response => response.json())
+            .then(data => {
+                priceInput.value = data.price || '0.00';
+            })
+            .catch(err => {
+                console.error('Error fetching price:', err);
+                priceInput.value = '0.00';
+            });
+    }, 400);
+}
+
+let currentSortColumn = -1;
+let currentSortDirection = 'asc';
+
+function sortTable(columnIndex, header) {
+    const tbody = document.querySelector('.item-table tbody');
+
+    const rows = Array.from(
+        tbody.querySelectorAll('tr.item-data-row')
+    );
+
+    if (currentSortColumn === columnIndex) {
+        currentSortDirection =
+            currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumn = columnIndex;
+        currentSortDirection = 'asc';
+    }
+
+    rows.sort((a, b) => {
+        let valueA = a.cells[columnIndex].innerText.trim();
+        let valueB = b.cells[columnIndex].innerText.trim();
+
+        // Date columns
+        if (columnIndex === 5 || columnIndex === 6) {
+            valueA = valueA === '-' ? '' : valueA;
+            valueB = valueB === '-' ? '' : valueB;
+
+            const dateA = Date.parse(valueA) || 0;
+            const dateB = Date.parse(valueB) || 0;
+
+            return currentSortDirection === 'asc'
+                ? dateA - dateB
+                : dateB - dateA;
+        }
+
+        // Text / PO number
+        return currentSortDirection === 'asc'
+            ? valueA.localeCompare(valueB, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            })
+            : valueB.localeCompare(valueA, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            });
+    });
+
+    // Reorder rows according to the selected column
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Renumber the No column after sorting
+    Array.from(tbody.querySelectorAll('tr.item-data-row'))
+        .forEach((row, index) => {
+            row.cells[0].textContent = index + 1;
+        });
+
+    // Reapply search and pagination after sorting
+    currentPage = 1;
+    renderPagination();
+
+    // Reset all icons
+    document.querySelectorAll('.item-table th.sortable').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+
+        if (icon) {
+            icon.textContent = 'unfold_more';
+        }
+    });
+
+    // Active sort icon
+    const icon = header.querySelector('.sort-icon');
+
+    if (icon) {
+        icon.textContent =
+            currentSortDirection === 'asc'
+                ? 'keyboard_arrow_up'
+                : 'keyboard_arrow_down';
+    }
+}
+</script>
+{% endblock %}

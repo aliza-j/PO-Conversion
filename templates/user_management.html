@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+{% set active_page = 'user_management' %}
+
+{% block title %}User Accounts - MasterPO{% endblock %}
+
+{% block content %}
+{% if error %}
+<div id="errorModal" class="modal-overlay" style="display: flex;">
+    <div class="modal-card" style="max-width: 480px;">
+
+        <div style="align-items: center;">
+            <button type="button" class="close-btn" onclick="closeErrorModal()">&times;</button>
+        </div>
+
+        <div style="padding: 20px 24px; text-align: center;">
+            <span class="material-symbols-rounded" style="font-size: 48px;">error</span>
+            <p style="margin-top: 12px;">{{error}}</p>
+        </div>
+
+        <div class="btn-group-single-line" style="justify-content: center; padding: 0 24px 20px;">
+            <button type="button" class="btn btn-primary" onclick="closeErrorModal()">OK</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-shell">
+    <div class="page-heading">
+        <div>
+            <h1>User Accounts</h1>
+        </div>
+    </div>
+
+    {% if message %}
+    <div style="margin-bottom:14px; padding:11px 14px; border:1px solid #cfe8da; border-radius:9px; background:#f3fbf6; color:#23734b; font-size:.75rem;">
+        {{ message }}
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div style="margin-bottom:14px; padding:11px 14px; border:1px solid #f1caca; border-radius:9px; background:#fff6f6; color:#b42318; font-size:.75rem;">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <section class="workspace-card">
+        <form method="GET" action="/user-management" class="filter-row" style="width:100%; display:flex; justify-content:flex-end;">
+            <div class="toolbar" style="justify-content:flex-end;">
+                <div class="filter-field">
+                    <div class="search-wrap">
+                        <span class="material-symbols-rounded">search</span>
+                        <input type="text" id="liveSearch" name="search"
+                            placeholder="Search"
+                            value="{{ request.args.get('search', '') }}" autocomplete="off">
+                    </div>
+                </div>
+
+                <button type="button" class="action-btn primary" onclick="openCreateModal()">
+                    <span class="material-symbols-rounded">person_add</span>
+                    Add User
+                </button>
+            </div>
+        </form>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:70px;">No</th>
+                        <th>Username</th>
+                        <th style="width:150px;">Role</th>
+                        <th style="width:150px;">Status</th>
+                        <th style="width:190px;">Created</th>
+                        <th style="width:110px; text-align:center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr class = "user-row">
+                        <td>{{ loop.index }}</td>
+                        <td class="cell-strong">
+                            {{ user.username }}
+                            {% if user.no|string == session.get('user_id')|string %}
+                                <span style="margin-left:6px; color:#6b6ec4; font-size:.65rem;">You</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {{ 'status-generated' if user.role == 'admin' else 'status-pending' }}">
+                                {{ user.role|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                                <span class="status-badge status-ok">Active</span>
+                            {% else %}
+                                <span class="status-badge status-error">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.created_at or '-' }}</td>
+                        <td style="text-align:center;">
+                            <button type="button"
+                                class="action-btn edit-user-btn"
+                                style="padding:7px 10px;"
+                                data-user-no="{{ user.no }}"
+                                data-username="{{ user.username|e }}"
+                                data-role="{{ user.role|e }}"
+                                data-active="{{ 1 if user.is_active else 0 }}">
+                                <span class="material-symbols-rounded">edit</span>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="empty-state">No user accounts found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div id="userModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card" style="max-width:560px;">
+        <div class="modal-header">
+            <div>
+                <h4 id="modalTitle">Add User</h4>
+                <div id="modalSubtitle" style="margin-top:4px; color:#8a94a6; font-size:.69rem;">
+                    Create a new MasterPO login account.
+                </div>
+            </div>
+            <button type="button" class="close-btn" onclick="closeUserModal()">&times;</button>
+        </div>
+
+        <form id="userForm" method="POST" action="/user-management/save">
+            <input type="hidden" name="record_no" id="recordNo">
+
+            <div class="form-group-horizontal">
+                <label for="username">Username</label>
+                <input class="form-control" type="text" id="username" name="username" required maxlength="100">
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="password">Password</label>
+                <input class="form-control" type="password" id="password" name="password">
+                <small id="passwordHelp" style="display:block; margin-top:5px; color:#8a94a6; font-size:.65rem;">
+                    Password is required for a new account.
+                </small>
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="role">Role</label>
+                <select class="form-control" id="role" name="role">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+
+            <div class="form-group-horizontal">
+                <label for="isActive">Status</label>
+                <select class="form-control" id="isActive" name="is_active">
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                </select>
+            </div>
+
+            <div class="btn-group-single-line" style="margin-top:24px;">
+                <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+
+                <button type="submit" class="btn btn-primary" id="saveButton">
+                    Save User
+                </button>
+
+                <button type="button" class="btn btn-danger" id="deleteButton"
+                        style="display:none;" onclick="deleteCurrentUser()">
+                    Delete
+                </button>
+            </div>
+        </form>
+
+        <form id="deleteUserForm" method="POST" action="/user-management/delete" style="display:none;">
+            <input type="hidden" name="record_no" id="deleteRecordNo">
+        </form>
+    </div>
+</div>
+
+<div id="userPageData"
+     data-current-user-id="{{ session.get('user_id', '') }}"
+     hidden></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+<!----Search---->
+    const liveSearch = document.getElementById('liveSearch');
+
+    if (liveSearch) {
+        liveSearch.addEventListener('input', function () {
+
+            const keyword = this.value
+                .trim()
+                .toLowerCase();
+
+            const rows = document.querySelectorAll(
+                '.data-table tbody tr.user-row'
+            );
+
+            rows.forEach(function (row) {
+                const text = row.innerText.toLowerCase();
+
+                row.style.display =
+                    text.includes(keyword) ? '' : 'none';
+            });
+        });
+    }
+
+
+<!----Add User---->
+    const addButton = document.querySelector(
+        'button[onclick="openCreateModal()"]'
+    );
+
+    if (addButton) {
+        addButton.removeAttribute('onclick');
+
+        addButton.addEventListener('click', function () {
+
+            const modal = document.getElementById('userModal');
+            const form = document.getElementById('userForm');
+
+            form.action = '/user-management/save';
+
+            document.getElementById('modalTitle').textContent =
+                'Add User';
+
+            document.getElementById('modalSubtitle').textContent =
+                'Create a new MasterPO login account.';
+
+            document.getElementById('recordNo').value = '';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+
+            document.getElementById('password').required = true;
+
+            document.getElementById('passwordHelp').textContent =
+                'Password is required for a new account.';
+
+            document.getElementById('role').value = 'user';
+            document.getElementById('role').disabled = false;
+
+            document.getElementById('isActive').value = '1';
+            document.getElementById('isActive').disabled = false;
+
+            document.getElementById('saveButton').textContent =
+                'Create User';
+
+            document.getElementById('deleteButton').style.display =
+                'none';
+
+            modal.style.display = 'flex';
+        });
+    }
+
+
+<!----Edit User---->
+    const editButtons = document.querySelectorAll('.edit-user-btn');
+
+    editButtons.forEach(function (button) {
+
+        // Remove old onclick
+        button.removeAttribute('onclick');
+
+        button.addEventListener('click', function () {
+
+            const no = this.dataset.userNo;
+            const username = this.dataset.username;
+            const role = this.dataset.role;
+            const isActive = this.dataset.active;
+
+            const modal = document.getElementById('userModal');
+            const form = document.getElementById('userForm');
+
+            form.action = '/user-management/update';
+
+            document.getElementById('modalTitle').textContent =
+                'Edit User';
+
+            document.getElementById('modalSubtitle').textContent =
+                'Update account details or reset the password.';
+
+            document.getElementById('recordNo').value = no;
+            document.getElementById('username').value = username;
+
+            document.getElementById('password').value = '';
+            document.getElementById('password').required = false;
+
+            document.getElementById('passwordHelp').textContent =
+                'Leave blank to keep the existing password.';
+
+            document.getElementById('role').value = role;
+            document.getElementById('isActive').value =
+                String(isActive);
+
+            document.getElementById('saveButton').textContent =
+                'Update User';
+
+            // Current logged-in user
+            const pageData =
+                document.getElementById('userPageData');
+
+            const currentUserId =
+                pageData ? pageData.dataset.currentUserId : '';
+
+            const isSelf =
+                String(no) === String(currentUserId);
+
+            document.getElementById('role').disabled = isSelf;
+            document.getElementById('isActive').disabled = isSelf;
+
+            document.getElementById('deleteButton').style.display =
+                isSelf ? 'none' : 'inline-flex';
+
+            modal.style.display = 'flex';
+        });
+    });
+
+
+<!----Close Button---->
+    const closeButton =
+        document.querySelector('#userModal .close-btn');
+
+    if (closeButton) {
+        closeButton.removeAttribute('onclick');
+
+        closeButton.addEventListener('click', function () {
+            document.getElementById('userModal').style.display =
+                'none';
+        });
+    }
+
+
+<!----Cancel Button---->
+    const cancelButton =
+        document.querySelector('#userForm .btn-secondary');
+
+    if (cancelButton) {
+        cancelButton.removeAttribute('onclick');
+
+        cancelButton.addEventListener('click', function () {
+            document.getElementById('userModal').style.display =
+                'none';
+        });
+    }
+
+
+<!----Outside Modal---->
+    const modal = document.getElementById('userModal');
+
+    if (modal) {
+        modal.addEventListener('click', function (event) {
+
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    }
+
+
+<!----Delete User---->
+    const deleteButton =
+        document.getElementById('deleteButton');
+
+    if (deleteButton) {
+
+        deleteButton.removeAttribute('onclick');
+
+        deleteButton.addEventListener('click', function () {
+
+            const recordNo =
+                document.getElementById('recordNo').value;
+
+            const username =
+                document.getElementById('username').value;
+
+            if (!recordNo) {
+                return;
+            }
+
+            if (
+                confirm(
+                    `Delete user "${username}"? ` +
+                    `This account will no longer be able to sign in.`
+                )
+            ) {
+                document.getElementById(
+                    'deleteRecordNo'
+                ).value = recordNo;
+
+                document.getElementById(
+                    'deleteUserForm'
+                ).submit();
+            }
+        });
+    }
+
+});
+
+function closeErrorModal(){
+    const modal = document.getElementById('errorModal');
+
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+</script>
+{% endblock %}

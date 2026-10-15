@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+{% set active_page = 'customer_po' %}
+
+{% block title %}Customer PO - MasterPO{% endblock %}
+
+{% block content %}
+<div class="page-shell">
+    <div class="page-heading">
+        <div>
+            <h1>Purchase Order</h1>
+        </div>
+    </div>
+
+    <section class="workspace-card">
+        <div class="toolbar" style="justify-content:flex-end;">
+            <div class="toolbar-title">
+                <span id="selectedCount" class="selected-count">0</span> selected
+            </div>
+
+            <button class="action-btn primary" type="button" onclick="batchAction('dta')">
+                <span class="material-symbols-rounded">description</span>
+                Generate
+            </button>
+            <button class="action-btn" type="button" onclick="batchAction('excel')">
+                <span class="material-symbols-rounded">table_view</span>
+                Export
+            </button>
+            <button class="action-btn danger" type="button" onclick="openDeleteModal()">
+                <span class="material-symbols-rounded">delete</span>
+                Delete
+            </button>
+        </div>
+
+        <div class="filter-panel">
+            <form method="GET" action="/customer-po" class="filter-row">
+                <div class="filter-field">
+                    <label>Delivery date</label>
+                    <div class="date-range">
+                        <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}">
+                        <span>to</span>
+                        <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}">
+                    </div>
+                </div>
+
+                <div class="filter-field">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="ALL" {% if request.args.get('status','ALL') == 'ALL' %}selected{% endif %}>All</option>
+                        <option value="Exported" {% if request.args.get('status') == 'Exported' %}selected{% endif %}>Exported</option>
+                        <option value="Generated" {% if request.args.get('status') == 'Generated' %}selected{% endif %}>Generated</option>
+                        <option value="Pending" {% if request.args.get('status') == 'Pending' %}selected{% endif %}>Pending</option>
+                    </select>
+                </div>
+
+                <div class="filter-field">
+                    <label>Search records</label>
+                    <div class="search-wrap">
+                        <span class="material-symbols-rounded">search</span>
+                        <input type="text" id="liveSearch" name="search"
+                               placeholder="Search"
+                               value="{{ request.args.get('search', '') }}" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="filter-actions" style="justify-content:flex-end;">
+                    <button type="submit" class="filter-btn apply">Apply</button>
+                    <a href="/customer-po" class="filter-btn">Reset</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table po-table">
+                <thead>
+                    <tr>
+                        <th style="width:44px; text-align:center;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"></th>
+                        <th class="sortable" onclick="sortTable(1, this)">PO Number <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+
+                        <th>Order Type</th>
+
+                        <th class="sortable" onclick="sortTable(3, this)">Customer <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+
+                        <th>Seller</th>
+
+                        <th class="sortable" onclick="sortTable(5, this)">Order Date <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+
+                        <th class="sortable" onclick="sortTable(6, this)">Delivery Date <span class="material-symbols-rounded sort-icon">unfold_more</span></th>
+
+                        <th>Generate</th>
+
+                        <th>Remark</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for po in po_list %}
+                    <tr class="po-data-row">
+                        <td style="text-align:center;"><input type="checkbox" class="po-select" value="{{ po.po_number }}" onchange="selectRow(this)"></td>
+                        <td class="cell-strong">{{ po.po_number }}</td>
+                        <td>{{ po.order_type or '-' }}</td>
+                        <td>{{ po.cust_no or '-' }}</td>
+                        <td>{{ po.seller_no or '-' }}</td>
+                        <td>{{ po.order_date or '-' }}</td>
+                        <td>{{ po.delivery_date or '-' }}</td>
+                        <td><span class="status-badge {{ 'status-generated' if po.generate == 'Generated' else 'status-pending' }}">{{ po.generate }}</span></td>
+                        <td>{{ po.remark or '' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="9" class="empty-state">No customer PO records found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="pagination-bar">
+                <div class="pagination-info">
+                    Showing <span id="showingStart">0</span>–<span id="showingEnd">0</span>
+                    of <span id="totalRows">0</span>
+                </div>
+
+                <div class="pagination-controls">
+                    <label for="rowsPerPage">Rows per page:</label>
+                    <select id="rowsPerPage">
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+
+                    <button type="button" id="prevPage"><<</button>
+                    <span id="pageInfo">1 of 1</span>
+                    <button type="button" id="nextPage">>></button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="deleteModal" class="modal-overlay">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h4>Delete PO</h4>
+            <button type="button" class="close-btn" onclick="closeDeleteModal()">&times;</button>
+        </div>
+
+        <div style="padding: 20px;">
+            <p id="deleteMessage" style="margin: 0 0 20px 0;">
+                Are you sure you want to delete the selected PO(s)?
+            </p>
+
+            <div class="btn-group-single-line">
+                <button type="button"
+                        class="btn btn-delete"
+                        onclick="confirmDelete()">
+                    Delete
+                </button>
+
+                <button type="button"
+                        class="btn btn-cancel"
+                        onclick="closeDeleteModal()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="batchPoForm" method="POST" action="/customer-po/batch-action" style="display:none;"><input type="hidden" id="batchActionValue" name="action"><div id="batchPoInputs"></div></form>
+
+<script>
+
+const liveSearch = document.getElementById('liveSearch');
+const tableBody = document.querySelector('.po-table tbody');
+const rowsPerPageSelect = document.getElementById('rowsPerPage');
+
+let currentPage = 1;
+
+function getFilteredRows() {
+    if (!tableBody) return [];
+
+    const keyword = liveSearch
+        ? liveSearch.value.trim().toLowerCase()
+        : '';
+
+    return Array.from(
+        tableBody.querySelectorAll('tr.po-data-row')
+    ).filter(row =>
+        row.innerText.toLowerCase().includes(keyword)
+    );
+}
+
+function renderPagination() {
+    if (!tableBody || !rowsPerPageSelect) return;
+
+    const rows = getFilteredRows();
+    const pageSize = Number(rowsPerPageSelect.value) || 10;
+    const totalRows = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+
+    currentPage = Math.min(currentPage, totalPages);
+
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalRows);
+
+    // Hide all PO rows, then show only the current page.
+    tableBody.querySelectorAll('tr.po-data-row').forEach(row => {
+        row.style.display = 'none';
+    });
+
+    rows.slice(startIndex, endIndex).forEach(row => {
+        row.style.display = '';
+    });
+
+    document.getElementById('showingStart').textContent =
+        totalRows === 0 ? 0 : startIndex + 1;
+
+    document.getElementById('showingEnd').textContent = endIndex;
+    document.getElementById('totalRows').textContent = totalRows;
+    document.getElementById('pageInfo').textContent =
+        `Page ${currentPage} of ${totalPages}`;
+
+    document.getElementById('prevPage').disabled =
+        currentPage <= 1;
+
+    document.getElementById('nextPage').disabled =
+        currentPage >= totalPages;
+
+    // Update the select-all checkbox for visible rows.
+    const visibleCheckboxes = rows
+        .slice(startIndex, endIndex)
+        .map(row => row.querySelector('.po-select'))
+        .filter(Boolean);
+
+    const selectAll = document.getElementById('selectAll');
+
+    if (selectAll) {
+        selectAll.checked =
+            visibleCheckboxes.length > 0 &&
+            visibleCheckboxes.every(cb => cb.checked);
+    }
+}
+
+if (liveSearch) {
+    liveSearch.addEventListener('input', () => {
+        currentPage = 1;
+        renderPagination();
+    });
+}
+
+if (rowsPerPageSelect) {
+    rowsPerPageSelect.addEventListener('change', () => {
+        currentPage = 1;
+        renderPagination();
+    });
+}
+
+document.getElementById('prevPage').addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        renderPagination();
+    }
+});
+
+document.getElementById('nextPage').addEventListener('click', () => {
+    const totalPages = Math.max(
+        1,
+        Math.ceil(getFilteredRows().length /
+            Number(rowsPerPageSelect.value))
+    );
+
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderPagination();
+    }
+});
+
+renderPagination();
+
+
+function selectedPOs() {
+    return Array.from(document.querySelectorAll('input.po-select:checked'));
+}
+
+function updateSelectedCount() {
+    const count = selectedPOs().length;
+    const label = document.getElementById('selectedCount');
+    if (label) label.textContent = count;
+}
+
+function toggleSelectAll(master) {
+    document.querySelectorAll('.po-table tbody tr.po-data-row').forEach(row => {
+        if (row.style.display !== 'none') {
+            const cb = row.querySelector('input.po-select');
+            if (cb) {
+                cb.checked = master.checked;
+                selectRow(cb);
+            }
+        }
+    });
+}
+
+function submitSelectedPOs(action, selected) {
+    const container = document.getElementById('batchPoInputs');
+    container.innerHTML = '';
+
+    selected.forEach(cb => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'po_numbers';
+        input.value = cb.value;
+        container.appendChild(input);
+    });
+
+    document.getElementById('batchActionValue').value = action;
+    document.getElementById('batchPoForm').submit();
+}
+
+function downloadSelectedDTA(selected) {
+    selected.forEach((checkbox, index) => {
+        const po = encodeURIComponent(checkbox.value);
+        const url = `/customer-po/re-export/dta?po_number=${po}`;
+
+        setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = url;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }, index * 350);
+    });
+    // Allow download requests to start, then refresh badges from MySQL.
+    setTimeout(() => window.location.reload(), selected.length * 350 + 1800);
+}
+
+function batchAction(action) {
+    const selected = selectedPOs();
+
+    if (!selected.length) {
+        alert('Please select at least one PO.');
+        return;
+    }
+
+    // Only block CSV export if there are errors, allow DTA generate always
+    if (action === 'csv') {
+        const invalid = selected.filter(cb => {
+            const row = cb.closest('tr');
+            return row && row.cells.length > 8 && row.cells[8].textContent.trim() !== '';
+        });
+        if (invalid.length) {
+            alert('Cannot export CSV until the Remark errors are fixed: ' +
+                invalid.map(cb => cb.value).join(', '));
+            return;
+        }
+    }
+
+    if (action === 'dta' || action === 'excel' || action === 'csv') {
+        submitSelectedPOs(action, selected);
+        return;
+    }
+}
+
+let deleteSelectedPOs = [];
+
+function openDeleteModal() {
+    const selected = selectedPOs();
+
+    if (!selected.length) {
+        alert('Please select at least one PO.');
+        return;
+    }
+
+    deleteSelectedPOs = selected;
+
+    const message = document.getElementById('deleteMessage');
+
+    if (selected.length === 1) {
+        message.textContent =
+            `Are you sure you want to delete PO ${selected[0].value}?`;
+    } else {
+        message.textContent =
+            `Are you sure you want to delete ${selected.length} selected POs?`;
+    }
+
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    deleteSelectedPOs = [];
+}
+
+function confirmDelete() {
+    if (!deleteSelectedPOs.length) {
+        closeDeleteModal();
+        return;
+    }
+
+    submitSelectedPOs('delete', deleteSelectedPOs);
+}
+
+function selectRow(checkbox) {
+    const row = checkbox.closest('tr');
+
+    if (checkbox.checked) {
+        row.classList.add('po-row-selected');
+    } else {
+        row.classList.remove('po-row-selected');
+        const all = document.getElementById('selectAll');
+        if (all) all.checked = false;
+    }
+
+    updateSelectedCount();
+}
+
+let currentSortColumn = -1;
+let currentSortDirection = 'asc';
+
+function sortTable(columnIndex, header) {
+    const tbody = document.querySelector('.po-table tbody');
+
+    const rows = Array.from(
+        tbody.querySelectorAll('tr.po-data-row')
+    );
+
+    if (currentSortColumn === columnIndex) {
+        currentSortDirection =
+            currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortColumn = columnIndex;
+        currentSortDirection = 'asc';
+    }
+
+    rows.sort((a, b) => {
+        let valueA = a.cells[columnIndex].innerText.trim();
+        let valueB = b.cells[columnIndex].innerText.trim();
+
+        // Date columns
+        if (columnIndex === 5 || columnIndex === 6) {
+            valueA = valueA === '-' ? '' : valueA;
+            valueB = valueB === '-' ? '' : valueB;
+
+            const dateA = Date.parse(valueA) || 0;
+            const dateB = Date.parse(valueB) || 0;
+
+            return currentSortDirection === 'asc'
+                ? dateA - dateB
+                : dateB - dateA;
+        }
+
+        // Text / PO number
+        return currentSortDirection === 'asc'
+            ? valueA.localeCompare(valueB, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            })
+            : valueB.localeCompare(valueA, undefined, {
+                numeric: true,
+                sensitivity: 'base'
+            });
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Reset all icons
+    document.querySelectorAll('.po-table th.sortable').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+
+        if (icon) {
+            icon.textContent = 'unfold_more';
+        }
+    });
+
+    // Active sort icon
+    const icon = header.querySelector('.sort-icon');
+
+    if (icon) {
+        icon.textContent =
+            currentSortDirection === 'asc'
+                ? 'keyboard_arrow_up'
+                : 'keyboard_arrow_down';
+    }
+}
+</script>
+{% endblock %}
